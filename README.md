@@ -1,14 +1,13 @@
 # harvester
 
-A Clojure library designed to ... well, that part is up to you.
+A small Seesaw application that takes HTML (by file or URL), takes the inputs and selects, and outputs it to a table. You can also export to Excel.
 
 ## Usage
 
-FIXME
+lein run -m harvester.core, or lein uberjar and use the standalone.
 
 ## License
 
-Copyright © 2015 FIXME
+Copyright © 2015 github/nnbosko
 
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+Distributed under the MIT License.
