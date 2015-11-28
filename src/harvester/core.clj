@@ -88,20 +88,30 @@
                                      typ (:type attrs)]
                                  (conj s [typ id name]))})))
 
+
 (defvisitor collect-inputs-selects-table :pre [n s]
             (if (or
                   (= :select (:tag n))
-                  (= :input (:tag n)))
+                  (= :input (:tag n))
+                  (= :textarea (:tag n))
+                  (= :option (:tag n))
+                  )
               (case (:tag n)
                 :select {:state (let [attrs (:attrs n)
                                       name (:name attrs)
-                                      id (:id attrs)]
-                                  (conj s {:type "select" :id id :name name}))}
+                                      id (:id attrs)
+                                      opts (:content n)]
+                                  (conj s {:type "select" :id id :name name})
+                :option {:state (conj s {:type "-- option" :id (-> n :attrs :value first str) :name (-> n :content first str)})}
                 :input {:state (let [attrs (:attrs n)
                                      name (:name attrs)
                                      id (:id attrs)
                                      typ (:type attrs)]
-                                 (conj s {:type typ :id id :name name}))})))
+                                 (conj s {:type typ :id id :name name}))}
+                :textarea {:state (let [attrs (:attrs n)
+                                     name (:name attrs)
+                                     id (:id attrs)]
+                                   (conj s {:type "textarea" :id id :name name}))})))
 
 (defn load-site [site]
   (reset! site-map (get-html-from-site site)))
@@ -117,14 +127,6 @@
     (do
       (sheet/set-row-style! hdr (sheet/create-cell-style! wb {:background :yellow, :font {:bold true}}))
       (sheet/save-workbook! (str file) wb))))
-
-  (let [dat (:state (visit @site-zipper [] [collect-inputs-selects-wb]))
-        wb (sheet/create-workbook "Inputs" dat)
-        sht (sheet/select-sheet "Inputs" wb)
-        hdr (first (sheet/row-seq sht))]
-    (do
-      (sheet/set-row-style! hdr (sheet/create-cell-style! wb {:background :yellow, :font {:bold true}}))
-      (sheet/save-workbook! (str "/home/nicolas/Work/CloudCustom/harvester/outputs/tests.xlsx") wb))))
 
 (def table-rows (atom {}))
 (def table-modl (atom (table-model :columns [{:key :type :text "Type"}
