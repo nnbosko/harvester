@@ -101,7 +101,7 @@
                                       name (:name attrs)
                                       id (:id attrs)
                                       opts (:content n)]
-                                  (conj s {:type "select" :id id :name name})
+                                  (conj s {:type "select" :id id :name name}))}
                 :option {:state (conj s {:type "-- option" :id (-> n :attrs :value first str) :name (-> n :content first str)})}
                 :input {:state (let [attrs (:attrs n)
                                      name (:name attrs)
@@ -127,6 +127,14 @@
     (do
       (sheet/set-row-style! hdr (sheet/create-cell-style! wb {:background :yellow, :font {:bold true}}))
       (sheet/save-workbook! (str file) wb))))
+
+  #_(let [dat (:state (visit @site-zipper [] [collect-inputs-selects-wb]))
+        wb (sheet/create-workbook "Inputs" dat)
+        sht (sheet/select-sheet "Inputs" wb)
+        hdr (first (sheet/row-seq sht))]
+    (do
+      (sheet/set-row-style! hdr (sheet/create-cell-style! wb {:background :yellow, :font {:bold true}}))
+      (sheet/save-workbook! (str "/home/nicolas/Work/CloudCustom/harvester/outputs/tests.xlsx") wb)))
 
 (def table-rows (atom {}))
 (def table-modl (atom (table-model :columns [{:key :type :text "Type"}

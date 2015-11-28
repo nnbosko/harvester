@@ -1,4 +1,4 @@
-(defproject harvester "1.01"
+(defproject harvester "1.02"
   :description "HTML input/select finder."
   :url "http://github.com/nnbosko"
   :license {:name "Eclipse Public License"
