@@ -13,7 +13,9 @@
         seesaw.util
         seesaw.font
         [clojure.java.io :only [file output-stream reader writer]])
-  (:import [java.io.Reader])
+  (:import [java.io.Reader]
+           (org.apache.poi.hssf.usermodel HSSFPalette HSSFWorkbook)
+           (org.apache.poi.hssf.record PaletteRecord))
   (:gen-class))
 
 (def file-data (atom ""))
@@ -101,17 +103,50 @@
                                       name (:name attrs)
                                       id (:id attrs)
                                       opts (:content n)]
-                                  (conj s {:type "select" :id id :name name}))}
-                :option {:state (conj s {:type "-- option" :id (-> n :attrs :value first str) :name (-> n :content first str)})}
+                                  (conj s {:type "select" :id id :name name
+                                           :code (if (not= nil id)
+                                                   (str "dd_select_n('" id "', driver, data[''])")
+                                                   (str "dd_select_n('" name "', driver, data[''], 'name')"))}))}
+                :option {:state (let [optval (-> n :attrs :value str)
+                                      optval-first (-> n :attrs :value first str)
+                                      opttxt (-> n :content first str)
+                                      is-val-string? (= java.lang.String (type optval))
+                                      optval-output (if is-val-string? optval optval-first)]
+                                  ;(println "optval: " optval ", type: " (type optval))
+                                  (conj s {:type "-- option"
+                                           :id optval-output
+                                           :name opttxt
+                                           :code (str " { \"val\" : \"" optval-output "\",  \" txt \" : \"" opttxt "\"}") }))}
                 :input {:state (let [attrs (:attrs n)
                                      name (:name attrs)
                                      id (:id attrs)
                                      typ (:type attrs)]
-                                 (conj s {:type typ :id id :name name}))}
+                                 (conj s {:type typ :id id :name name
+                                          :code (case typ
+                                                  "text" (if (not= nil id)
+                                                           (str "t_type_n('" id "', driver, data[''])")
+                                                           (str "t_type_n('" name "', driver, data[''], 'name')"))
+                                                  "radio" (if (not= nil id)
+                                                            (str "click_n('" id "', driver)")
+                                                            (str "click_n('" name "', driver, 'name')"))
+                                                  "checkbox" (if (not= nil id)
+                                                            (str "click_n('" id "', driver)")
+                                                            (str "click_n('" name "', driver, 'name')"))
+                                                  "submit" (if (not= nil id)
+                                                               (str "click_n('" id "', driver)")
+                                                               (str "click_n('" name "', driver, 'name')"))
+                                                  "button" (if (not= nil id)
+                                                             (str "click_n('" id "', driver)")
+                                                             (str "click_n('" name "', driver, 'name')"))
+                                                  "hidden" "")
+                                          }))}
                 :textarea {:state (let [attrs (:attrs n)
                                      name (:name attrs)
                                      id (:id attrs)]
-                                   (conj s {:type "textarea" :id id :name name}))})))
+                                   (conj s {:type "textarea" :id id :name name
+                                            :code (if (not= nil id)
+                                                    (str "t_type_n('" id "', driver, data[''])")
+                                                    (str "t_type_n('" name "', driver, data[''], 'name')"))}))})))
 
 (defn load-site [site]
   (reset! site-map (get-html-from-site site)))
@@ -120,13 +155,42 @@
   (pp/pprint
     map (clojure.java.io/writer (str "/home/nicolas/Work/CloudCustom/harvester/outputs/" file))))
 
+(defn set-custom-colors [wb]
+  (let [sel-col (sheet/color-index :bright_green)
+        opt-col (sheet/color-index :green)
+        wb-p (.getCustomPalette wb)
+        ]
+    #_(.set!)
+    (.setColorAtIndex wb-p sel-col 180 167 214)
+    (.setColorAtIndex wb-p opt-col 217 210 233)))
+
 (defn write-inputs-to-excel [dat file]
-  (let [wb (sheet/create-workbook "Inputs" dat)
-        sht (sheet/select-sheet "Inputs" wb)
-        hdr (first (sheet/row-seq sht))]
-    (do
-      (sheet/set-row-style! hdr (sheet/create-cell-style! wb {:background :yellow, :font {:bold true}}))
-      (sheet/save-workbook! (str file) wb))))
+  (let [wb (sheet/create-xls-workbook "Inputs" dat)
+        sheet (sheet/select-sheet "Inputs" wb)
+        row-sequence (sheet/row-seq sheet)]
+    (set-custom-colors wb)
+    (.setColumnWidth sheet 0 2000)
+    (.setColumnWidth sheet 1 7500)
+    (.setColumnWidth sheet 2 7500)
+    (.setColumnWidth sheet 3 20000)
+    (doseq [r row-sequence]
+      (case (str (first r))
+        "Type" (sheet/set-row-style! r (sheet/create-cell-style! wb {:background :yellow, :font {:bold true}}))
+        "text" (sheet/set-row-style! r (sheet/create-cell-style! wb {:background :pale_blue}))
+        "radio" (sheet/set-row-style! r (sheet/create-cell-style! wb {:background :light_cornflower_blue}))
+        "checkbox" (sheet/set-row-style! r (sheet/create-cell-style! wb {:background :light_cornflower_blue}))
+        "submit" (sheet/set-row-style! r (sheet/create-cell-style! wb {:background :light_cornflower_blue}))
+        "button" (sheet/set-row-style! r (sheet/create-cell-style! wb {:background :light_cornflower_blue}))
+        "hidden" (sheet/set-row-style! r (sheet/create-cell-style! wb {:background :grey_40_percent}))
+        "textarea" (sheet/set-row-style! r (sheet/create-cell-style! wb {:background :pale_blue}))
+        "select" (sheet/set-row-style! r (sheet/create-cell-style! wb {:background :bright_green}))
+        "-- option" (sheet/set-row-style! r (sheet/create-cell-style! wb {:background :green})))
+      )
+    #_(doseq
+      [item row-sequence]
+      (case (:type item)))
+    (sheet/save-workbook! (str file) wb)
+    ))
 
   #_(let [dat (:state (visit @site-zipper [] [collect-inputs-selects-wb]))
         wb (sheet/create-workbook "Inputs" dat)
@@ -139,14 +203,16 @@
 (def table-rows (atom {}))
 (def table-modl (atom (table-model :columns [{:key :type :text "Type"}
                                              {:key :id :text "ID"}
-                                             {:key :name :text "Name"}]
+                                             {:key :name :text "Name"}
+                                             {:key :code :text "LOC"}]
                                    :rows [{:type "Type 1"
                                            :id "ID 1"
-                                           :name "Name 1"}])))
+                                           :name "Name 1"
+                                           :code "iwait(0.1)"}])))
 
 (defn table-to-xls-model []
   (let [dat (value-at @table-modl (range 0 (row-count @table-modl)))
-        rv (into [["Type" "ID" "Name"]] (mapv (fn [e] [(:type e) (:id e) (:name e)]) dat))]
+        rv (into [["Type" "ID" "Name" "LOC"]] (mapv (fn [e] [(:type e) (:id e) (:name e) (:code e)]) dat))]
     rv
     ))
 
@@ -154,7 +220,8 @@
   (let [row-res (:state (visit @zipper [] [collect-inputs-selects-table]))
         mod-res (table-model :columns [{:key :type :text "Type"}
                                        {:key :id :text "ID"}
-                                       {:key :name :text "Name"}]
+                                       {:key :name :text "Name"}
+                                       {:key :code :text "LOC"}]
                              :rows row-res)]
     (reset! table-rows row-res)
     (reset! table-modl mod-res)))
@@ -265,7 +332,7 @@
                :model (keys @h-actions))
              (border-panel
                :id :actioncontainer
-               :center (:url @h-actions))))))
+               :center (:plain-text @h-actions))))))
 
 (defn behaviors [root]
   (let [html-type (select root [:#htmltype])
